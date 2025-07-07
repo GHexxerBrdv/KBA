@@ -6,6 +6,14 @@ import DeployAccount from './components/DeployAccount'
 import FundAccount from './components/FundAccount'
 import SimpleTransaction from './components/SimpleTransaction'
 import ContractInteraction from './components/ContractInteraction'
+
+// PrimeReact imports
+import { PrimeReactProvider } from 'primereact/api'
+import 'primereact/resources/themes/lara-light-blue/theme.css'
+import 'primereact/resources/primereact.min.css'
+import 'primeicons/primeicons.css'
+import 'primeflex/primeflex.css'
+
 import './App.css'
 
 function App() {
@@ -29,55 +37,68 @@ function App() {
     setConnectionStatus(status)
   }
 
+  // Check if MetaMask is installed
+  useEffect(() => {
+    const checkMetaMask = () => {
+      if (typeof window.ethereum === 'undefined') {
+        console.warn('MetaMask is not installed!')
+      }
+    }
+    
+    checkMetaMask()
+  }, [])
+
   return (
-    <div className="app-container">
-      <div className={`connection-status ${connectionStatus ? 'connected' : 'disconnected'}`}>
-        {connectionStatus ? '🟢 Connected' : '🔴 Disconnected'}
-      </div>
-      
-      <div className="container">
-        <Header />
+    <PrimeReactProvider>
+      <div className="app-container">
+        <div className={`connection-status ${connectionStatus ? 'connected' : 'disconnected'}`}>
+          {connectionStatus ? '🟢 Connected' : '🔴 Disconnected'}
+        </div>
         
-        <div className="main-content">
-          <ConnectWallet 
-            connectionStatus={connectionStatus} 
-            updateConnectionStatus={updateConnectionStatus}
-            setProvider={setProvider}
-            setSigner={setSigner}
-            setUserAddress={setUserAddress}
-            setWalletInfo={setWalletInfo}
-            walletInfo={walletInfo}
-          />
+        <div className="container">
+          <Header />
           
-          <DeployAccount 
-            isConnected={connectionStatus}
-            userAddress={userAddress}
-            signer={signer}
-            setSmartAccountAddress={setSmartAccountAddress}
-            setAccountInfo={setAccountInfo}
-            accountInfo={accountInfo}
-          />
-          
-          <FundAccount 
-            isConnected={connectionStatus}
-            smartAccountAddress={smartAccountAddress}
-            signer={signer}
-          />
-          
-          <SimpleTransaction 
-            isConnected={connectionStatus}
-            smartAccountAddress={smartAccountAddress}
-            signer={signer}
-          />
-          
-          <ContractInteraction 
-            isConnected={connectionStatus}
-            smartAccountAddress={smartAccountAddress}
-            signer={signer}
-          />
+          <div className="main-content">
+            <ConnectWallet 
+              connectionStatus={connectionStatus} 
+              updateConnectionStatus={updateConnectionStatus}
+              setProvider={setProvider}
+              setSigner={setSigner}
+              setUserAddress={setUserAddress}
+              setWalletInfo={setWalletInfo}
+              walletInfo={walletInfo}
+            />
+            
+            <DeployAccount 
+              isConnected={connectionStatus}
+              userAddress={userAddress}
+              signer={signer}
+              setSmartAccountAddress={setSmartAccountAddress}
+              setAccountInfo={setAccountInfo}
+              accountInfo={accountInfo}
+            />
+            
+            <FundAccount 
+              isConnected={connectionStatus}
+              smartAccountAddress={smartAccountAddress}
+              signer={signer}
+            />
+            
+            <SimpleTransaction 
+              isConnected={connectionStatus}
+              smartAccountAddress={smartAccountAddress}
+              signer={signer}
+            />
+            
+            <ContractInteraction 
+              isConnected={connectionStatus}
+              smartAccountAddress={smartAccountAddress}
+              signer={signer}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </PrimeReactProvider>
   )
 }
 

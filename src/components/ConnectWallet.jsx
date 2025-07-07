@@ -12,10 +12,27 @@ const ConnectWallet = ({
   walletInfo 
 }) => {
   const [status, setStatus] = useState({ message: '', type: '' });
+  const [isLoading, setIsLoading] = useState(false);
 
   // Check if wallet is already connected on component mount
   useEffect(() => {
     checkWalletConnection();
+    
+    // Set up event listeners for wallet changes
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+      window.ethereum.on('disconnect', disconnectWallet);
+    }
+    
+    // Clean up event listeners
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+        window.ethereum.removeListener('disconnect', disconnectWallet);
+      }
+    };
   }, []);
 
   // Check if wallet is already connected
@@ -39,6 +56,7 @@ const ConnectWallet = ({
         throw new Error('MetaMask is not installed');
       }
 
+      setIsLoading(true);
       if (showStatus) {
         setStatus({ message: 'Connecting to MetaMask...', type: 'info' });
       }
@@ -72,15 +90,18 @@ const ConnectWallet = ({
 
       if (showStatus) {
         setStatus({ message: 'Successfully connected to MetaMask!', type: 'success' });
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setStatus({ message: '', type: '' });
+        }, 3000);
       }
-
-      // Listen for account changes
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-      window.ethereum.on('chainChanged', handleChainChanged);
 
     } catch (error) {
       console.error('Connection error:', error);
       setStatus({ message: `Connection failed: ${error.message}`, type: 'error' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -88,14 +109,17 @@ const ConnectWallet = ({
   const handleAccountsChanged = (accounts) => {
     if (accounts.length === 0) {
       disconnectWallet();
+      setStatus({ message: 'Wallet disconnected', type: 'info' });
     } else if (accounts[0] !== walletInfo.address) {
-      window.location.reload(); // Reload page on account change
+      // Account changed - reconnect with the new account
+      connectWallet(true);
     }
   };
 
   // Handle chain changes
   const handleChainChanged = () => {
-    window.location.reload(); // Reload page on chain change
+    // Reload page on chain change
+    window.location.reload();
   };
 
   // Disconnect wallet (mostly for UI purposes as MetaMask doesn't have a disconnect method)
@@ -113,7 +137,15 @@ const ConnectWallet = ({
 
   // Format address for display
   const formatAddress = (address) => {
+    if (!address) return '';
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+
+  // Copy address to clipboard
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setStatus({ message: 'Address copied to clipboard!', type: 'success' });
+    setTimeout(() => setStatus({ message: '', type: '' }), 2000);
   };
 
   return (
@@ -123,30 +155,58 @@ const ConnectWallet = ({
         Wallet Connection
       </h2>
       
-      {connectionStatus && walletInfo.address && (
-        <div className="wallet-info">
-          <h3>🔗 Connected Wallet</h3>
-          <div className="info-row">
-            <span className="info-label">Address:</span>
-            <span className="info-value">{formatAddress(walletInfo.address)}</span>
+      <div className="wallet-connection-container">
+        {!connectionStatus ? (
+          <div className="connect-prompt">
+            <div className="connect-icon">
+              <i className="pi pi-link"></i>
+            </div>
+            <h3>Connect Your Wallet</h3>
+            <p>Connect your MetaMask wallet to get started with smart account management</p>
+            <Button 
+              icon="pi pi-link" 
+              label={isLoading ? "Connecting..." : "Connect MetaMask"} 
+              onClick={connectWallet} 
+              loading={isLoading}
+              disabled={isLoading}
+              className="p-button-primary p-button-raised" 
+            />
           </div>
-          <div className="info-row">
-            <span className="info-label">Network:</span>
-            <span className="info-value">{walletInfo.network}</span>
+        ) : (
+          <div className="wallet-details">
+            <div className="wallet-header">
+              <div className="wallet-title">
+                <i className="pi pi-check-circle"></i>
+                <h3>Connected Wallet</h3>
+              </div>
+              <div className="wallet-badge">Active</div>
+            </div>
+            
+            <div className="wallet-info">
+              <div className="info-row">
+                <span className="info-label">Address:</span>
+                <span className="info-value">
+                  {formatAddress(walletInfo.address)}
+                  <Button 
+                    icon="pi pi-copy" 
+                    onClick={() => copyToClipboard(walletInfo.address)}
+                    className="p-button-text p-button-rounded p-button-sm" 
+                    tooltip="Copy address"
+                  />
+                </span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Network:</span>
+                <span className="info-value">{walletInfo.network}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Balance:</span>
+                <span className="info-value">{walletInfo.balance} ETH</span>
+              </div>
+            </div>
           </div>
-          <div className="info-row">
-            <span className="info-label">Balance:</span>
-            <span className="info-value">{walletInfo.balance} ETH</span>
-          </div>
-        </div>
-      )}
-      
-      <Button 
-        icon={connectionStatus ? "pi pi-check" : "pi pi-link"} 
-        label={connectionStatus ? "Connected" : "Connect MetaMask"} 
-        onClick={connectWallet} 
-        className={connectionStatus ? "p-button-success" : "p-button-primary"} 
-      />
+        )}
+      </div>
       
       {status.message && (
         <div className={`status ${status.type} show`}>
@@ -154,11 +214,13 @@ const ConnectWallet = ({
         </div>
       )}
       
-      <div className="feature-highlight">
-        <h4>🚀 Getting Started</h4>
-        <p>Connect your MetaMask wallet to begin creating and managing smart contract accounts. Make sure
-          you're on a supported network with some ETH for gas fees.</p>
-      </div>
+      {!connectionStatus && (
+        <div className="feature-highlight">
+          <h4><i className="pi pi-info-circle"></i> Getting Started</h4>
+          <p>Connect your MetaMask wallet to begin creating and managing smart contract accounts. Make sure
+            you're on a supported network with some ETH for gas fees.</p>
+        </div>
+      )}
     </div>
   );
 };
